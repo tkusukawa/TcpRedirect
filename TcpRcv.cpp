@@ -10,6 +10,7 @@
 #include <string.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 
 #define REQ_ARG_NUM 2
 #define L_PORT_ARG 1

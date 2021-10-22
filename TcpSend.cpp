@@ -10,6 +10,7 @@
 #include <string.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 
 #define REQ_ARG_NUM 3
 #define D_HOST_ARG 1
