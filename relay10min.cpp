@@ -37,7 +37,7 @@ void deleteRelayNode(RelayList **listPP, fd_set *fds);
 int makeServerConnection(char *host, unsigned short port);
 int relaySocket(int rcvSocket, int sndSocket, char *buf, int bufSize);
 
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
   time_t tm;
   struct tm *ltm;

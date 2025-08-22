@@ -22,7 +22,7 @@
 int makeSendConnection(char *host, unsigned short port);
 int relaySocket(int rcvSocket, int sndSocket, char *buf, int bufSize);
 
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
     if(argc != REQ_ARG_NUM) {
         printf("usage: %s [destination host] [destination port]\n", argv[0]);

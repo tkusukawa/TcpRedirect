@@ -33,7 +33,7 @@ void addRcvNode(RcvList **listPP, fd_set *fds, int cSocket);
 void deleteRcvNode(RcvList **listPP, fd_set *fds);
 int rcvSocket(int rcvSocket, char *buf, int bufSize);
 
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
     if(argc != REQ_ARG_NUM) {
         printf("usage: %s [listen port]\n", argv[0]);
