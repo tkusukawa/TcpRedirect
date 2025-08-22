@@ -33,17 +33,32 @@ void addRelayNode(RelayList **listPP, fd_set *fds, int cSocket, int sSocket);
 void deleteRelayNode(RelayList **listPP, fd_set *fds);
 int makeServerConnection(char *host, unsigned short port);
 int relaySocket(int rcvSocket, int sndSocket, char *buf, int bufSize);
+void printTime(FILE *fd);
 
 int main(int argc, char **argv)
 {
+    bool debugFlag;
+
+    if(argc == REQ_ARG_NUM + 1 && strcmp(argv[1], "--debug") == 0) {
+        debugFlag = true;
+        for(int i=2; i<argc; i++)
+          argv[i-1] = argv[i];
+        argc --;
+    }
+    else {
+        debugFlag = false;
+    }
+
     if(argc != REQ_ARG_NUM) {
-        printf("usage: %s [listen port] [destination host] [destination port]\n", argv[0]);
+        printf("usage: %s [--debug] <listen port> <destination host> <destination port>\n", argv[0]);
         exit(0);
     }
 
     int port = atoi(argv[L_PORT_ARG]);
     int listenSocket = makeListenSocket(port);
-    printf("\nListen Port %d -> %s (%s)\n",
+    printf("\n");
+    printTime(stdout);
+    printf("Listen Port %d -> %s (%s)\n",
            port, argv[D_HOST_ARG], argv[D_PORT_ARG]);
     fflush(stdout);
     
@@ -57,6 +72,7 @@ int main(int argc, char **argv)
         fd_set rflg = rfds;
         int ret = select(FD_SETSIZE, &rflg, NULL, NULL, NULL);
         if(ret < 0) {
+            printTime(stderr);
             perror("main:select");
             exit(1);
         }
@@ -68,12 +84,18 @@ int main(int argc, char **argv)
                 if(FD_ISSET((*pp)->clientSocket, &rflg)) {
                     relayRes = relaySocket((*pp)->clientSocket, (*pp)->serverSocket,
                                            relayBuf, sizeof(relayBuf));
-                    //printf("%s->:%d[byte]\n", (*pp)->clientHost, relayRes);
+                    if(debugFlag) {
+                        printTime(stdout);
+                        printf("%s send %d[byte]\n", (*pp)->clientHost, relayRes);
+                    }
                 }
                 else if(FD_ISSET((*pp)->serverSocket, &rflg)) {
                     relayRes = relaySocket((*pp)->serverSocket, (*pp)->clientSocket,
                                            relayBuf, sizeof(relayBuf));
-                    //printf("%s<-:%d[byte]\n", (*pp)->clientHost, relayRes);
+                    if(debugFlag) {
+                        printTime(stdout);
+                        printf("%s recv %d[byte]\n", (*pp)->clientHost, relayRes);
+                    }
                 }
                 if(relayRes < 0) {
                     deleteRelayNode(pp, &rfds);
@@ -99,6 +121,7 @@ int makeListenSocket(unsigned short port)
 {
     int s = socket(PF_INET, SOCK_STREAM, 0);
     if(s < 0) {
+        printTime(stderr);
         perror("makeListenSocket:socket\n");
         exit(1);
     }
@@ -111,16 +134,19 @@ int makeListenSocket(unsigned short port)
 
     int temp = 1;
     if(setsockopt(s, SOL_SOCKET, SO_REUSEADDR,&temp, sizeof(temp))) {
+        printTime(stderr);
         perror("makeListenSocket:setsockopt");
         exit(1);
     }
 
     if(bind(s, (sockaddr *)&addr, sizeof(addr)) < 0) {
+        printTime(stderr);
         perror("makeListenSocket:bind");
         exit(1);
     }
 
     if(listen(s, LISTEN_NUM) < 0) {
+        printTime(stderr);
         perror("makeListenSocket:listen");
         exit(1);
     }
@@ -134,6 +160,7 @@ int acceptSocket(int listenSocket)
     socklen_t accept_len = sizeof(accept_addr);
     int newSocket = accept(listenSocket, (sockaddr *)&accept_addr, &accept_len);
     if(newSocket < 0) {
+        printTime(stderr);
         perror("acceptSocket:accept");
         //exit(1);
         return -1;
@@ -146,6 +173,7 @@ int makeServerConnection(char *host, unsigned short port)
     hostent *hp;
     hp=gethostbyname(host);
     if(hp == NULL) {
+        printTime(stderr);
         perror("makeClientSocket:gethostbyname");
         //exit(1);
         return -1;
@@ -158,12 +186,14 @@ int makeServerConnection(char *host, unsigned short port)
     
     int s = socket(PF_INET, SOCK_STREAM, 0);
     if(s < 0) {
+        printTime(stderr);
         perror("makeClientSocket:socket");
         //exit(1);
         return -1;
     }
 
     if(connect(s, (sockaddr*)&addr, sizeof(addr)) < 0) {
+        printTime(stderr);
         perror("fail:makeClientSocket:connect");
         //exit(1);
         close(s);
@@ -193,6 +223,7 @@ void addRelayNode(RelayList **listPP, fd_set *fds, int cSocket, int sSocket)
     sockaddr_in addr;
     socklen_t len = sizeof(addr);
     if(getpeername(cSocket, (sockaddr *)&addr, &len) < 0) {
+        printTime(stderr);
         perror("addRelayNode:getpeername");
         //exit(1);
         close(cSocket);
@@ -201,6 +232,7 @@ void addRelayNode(RelayList **listPP, fd_set *fds, int cSocket, int sSocket)
     }
     RelayList *node = new RelayList;
     if(inet_ntop(AF_INET, &(addr.sin_addr), node->clientHost, HOST_NAME_MAX_LEN) == NULL) {
+        printTime(stderr);
         perror("addRelayNode:inet_ntop");
         //exit(1);
         close(cSocket);
@@ -215,30 +247,16 @@ void addRelayNode(RelayList **listPP, fd_set *fds, int cSocket, int sSocket)
     FD_SET(node->clientSocket, fds);
     FD_SET(node->serverSocket, fds);
 
-    time_t t;
-    struct tm *ltm;
-    char tms[128];
-    time(&t);
-    ltm = localtime(&t);
-        
-    printf("[%02d/%02d %02d:%02d:%02d] %s Connect\n",
-           ltm->tm_mon+1, ltm->tm_mday,
-           ltm->tm_hour, ltm->tm_min, ltm->tm_sec,
+    printTime(stderr);
+    printf("%s Connect\n",
            node->clientHost);
     fflush(stdout);
 }
 
 void deleteRelayNode(RelayList **listPP, fd_set *fds)
 {
-    time_t t;
-    struct tm *ltm;
-    char tms[128];
-    time(&t);
-    ltm = localtime(&t);
-
-    printf("[%02d/%02d %02d:%02d:%02d] %s Disconnect \n",
-           ltm->tm_mon+1, ltm->tm_mday,
-           ltm->tm_hour, ltm->tm_min, ltm->tm_sec,
+    printTime(stderr);
+    printf("%s Disconnect \n",
            (*listPP)->clientHost);
     fflush(stdout);
 
@@ -249,4 +267,16 @@ void deleteRelayNode(RelayList **listPP, fd_set *fds)
     RelayList *remove = (*listPP);
     (*listPP) = remove->next;
     delete(remove);
+}
+
+void printTime(FILE *fd)
+{
+    time_t t;
+    struct tm *ltm;
+    time(&t);
+    ltm = localtime(&t);
+
+    fprintf(fd, "[%02d/%02d %02d:%02d:%02d] ",
+           ltm->tm_mon+1, ltm->tm_mday,
+           ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
 }
